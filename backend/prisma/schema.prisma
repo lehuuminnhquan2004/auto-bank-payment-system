@@ -1,0 +1,100 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  EXPIRED
+  FAILED
+}
+
+enum BankTransferType {
+  IN
+  OUT
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+  DUPLICATE
+}
+
+model User {
+  id           BigInt   @id @default(autoincrement())
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  balance      BigInt   @default(0)
+  createdAt    DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+
+  payments Payment[]
+
+  @@map("users")
+}
+
+model Payment {
+  id          BigInt        @id @default(autoincrement())
+  userId      BigInt        @map("user_id")
+  paymentCode String        @unique @map("payment_code") @db.VarChar(32)
+  amount      BigInt
+  status      PaymentStatus @default(PENDING)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.DateTime(3)
+  expiredAt   DateTime      @map("expired_at") @db.DateTime(3)
+  paidAt      DateTime?     @map("paid_at") @db.DateTime(3)
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  bankTransaction BankTransaction[]
+
+  @@index([userId, createdAt])
+  @@index([status, expiredAt])
+  @@map("payments")
+}
+
+model BankTransaction {
+  id                    BigInt           @id @default(autoincrement())
+  provider              String           @db.VarChar(50)
+  providerTransactionId String           @map("provider_transaction_id") @db.VarChar(255)
+  paymentId             BigInt?          @map("payment_id")
+  bank                  String           @db.VarChar(100)
+  transferType          BankTransferType @map("transfer_type")
+  amount                BigInt
+  content               String           @db.Text
+  transactionTime       DateTime?        @map("transaction_time") @db.DateTime(3)
+  rawPayload            Json             @map("raw_payload")
+  createdAt             DateTime         @default(now()) @map("created_at") @db.DateTime(3)
+
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([provider, providerTransactionId])
+  @@index([transactionTime])
+  @@map("bank_transactions")
+}
+
+model WebhookLog {
+  id                    BigInt        @id @default(autoincrement())
+  provider              String        @db.VarChar(50)
+  providerTransactionId String?       @map("provider_transaction_id") @db.VarChar(255)
+  payload               Json
+  status                WebhookStatus @default(RECEIVED)
+  receivedAt            DateTime      @default(now()) @map("received_at") @db.DateTime(3)
+  processedAt           DateTime?     @map("processed_at") @db.DateTime(3)
+  errorMessage          String?       @map("error_message") @db.Text
+
+  @@index([providerTransactionId])
+  @@index([status, receivedAt])
+  @@map("webhook_logs")
+}
