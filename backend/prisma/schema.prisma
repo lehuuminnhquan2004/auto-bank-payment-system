@@ -56,8 +56,8 @@ model Payment {
   expiredAt   DateTime      @map("expired_at") @db.DateTime(3)
   paidAt      DateTime?     @map("paid_at") @db.DateTime(3)
 
-  user            User              @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  bankTransaction BankTransaction[]
+  user             User              @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  bankTransactions BankTransaction[]
 
   @@index([userId, createdAt])
   @@index([status, expiredAt])
