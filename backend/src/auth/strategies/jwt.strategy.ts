@@ -9,7 +9,7 @@ import {
   Strategy,
 } from 'passport-jwt';
 
-import { UsersService } from '../users/users.service.js';
+import { UsersService } from '../../users/users.service.js';
 import { AuthenticatedUser } from '../types/authenticated-user.type.js';
 import { JwtPayload } from '../types/jwt-payload.type.js';
 
