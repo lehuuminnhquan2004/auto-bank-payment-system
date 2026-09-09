@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { UsersModule } from './users/users.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
+import { WebhooksModule } from './webhooks/webhooks.module.js';
 
 
 
@@ -20,6 +21,7 @@ import { PaymentsModule } from './payments/payments.module.js';
     UsersModule,
     AuthModule,
     PaymentsModule,
+    WebhooksModule,
   ],
   controllers: [AppController],
   providers: [AppService],
