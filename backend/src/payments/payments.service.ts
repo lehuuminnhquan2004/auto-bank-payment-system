@@ -130,7 +130,15 @@ export class PaymentsService {
       qrUrl: this.buildQrUrl(
       payment.amount,
       payment.paymentCode,
-    ),
+      ),
+      bank: {
+        bankId:
+          this.configService.getOrThrow<string>('BANK_ID'),
+        accountNo:
+          this.configService.getOrThrow<string>('BANK_ACCOUNT_NO'),
+        accountName:
+          this.configService.getOrThrow<string>('BANK_ACCOUNT_NAME'),
+      },
     };
   }
   

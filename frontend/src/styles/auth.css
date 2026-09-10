@@ -1,0 +1,9 @@
+/* Login and registration screens */
+.auth-page { margin-top: 52px; }
+.auth-page > p:last-child a { font-weight: 650; }
+
+@media (max-width: 640px) {
+  .auth-page { margin-top: 30px; padding: 30px 24px; border-radius: 20px; }
+  .auth-page::before { left: 24px; }
+  .auth-page h1 { font-size: 29px; }
+}

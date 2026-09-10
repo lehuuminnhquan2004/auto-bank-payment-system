@@ -1,0 +1,41 @@
+/* AutoBank design tokens. Change these to theme every screen together. */
+:root {
+  font-family: 'Segoe UI', Inter, system-ui, -apple-system, sans-serif;
+  color: #193334;
+  background: #f5f7f5;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --ink: #193334;
+  --muted: #627575;
+  --brand: #08796c;
+  --brand-hover: #056255;
+  --line: #dfe8e3;
+  --surface: #fff;
+  --radius: 24px;
+  --shadow: 0 12px 44px #163d3210;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+::selection { background: #bce9db; color: #143d34; }
+a { color: var(--brand); text-underline-offset: 4px; text-decoration-thickness: 1px; }
+a:hover { color: var(--brand-hover); }
+button, input { font: inherit; }
+button, a, input { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 3px solid #43a997; outline-offset: 4px; }
+h1, h2, p { margin: 0; }
+h1 { font-size: clamp(30px, 4vw, 42px); line-height: 1.16; letter-spacing: -1.6px; font-weight: 700; }
+h2 { font-size: 20px; line-height: 1.4; letter-spacing: -.5px; }
+p { color: var(--muted); font-size: 15px; line-height: 1.75; overflow-wrap: anywhere; }
+strong { color: var(--ink); font-weight: 650; }
+.eyebrow { display: block; color: var(--brand); font-size: 11px; font-weight: 750; letter-spacing: 2px; margin-bottom: 14px; }
+.page-description { margin-top: 12px; }
+
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

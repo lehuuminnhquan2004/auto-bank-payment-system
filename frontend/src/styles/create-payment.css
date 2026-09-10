@@ -1,0 +1,12 @@
+/* Create payment screen */
+.create-payment-page { width: min(560px, calc(100% - 40px)); }
+.create-payment-page > h1 + p { margin-top: 12px; }
+.create-payment-page input { font-size: 26px; font-weight: 650; padding: 18px; font-variant-numeric: tabular-nums; }
+.create-payment-page form > p { background: #edf6f0; border: 1px solid #d8e9df; border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.create-payment-page form > p strong { color: var(--brand); }
+
+@media (max-width: 640px) {
+  .create-payment-page { margin-top: 30px; padding: 30px 24px; border-radius: 20px; }
+  .create-payment-page::before { left: 24px; }
+  .create-payment-page h1 { font-size: 29px; }
+}
