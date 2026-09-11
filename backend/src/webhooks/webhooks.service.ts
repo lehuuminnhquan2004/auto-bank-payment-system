@@ -389,7 +389,7 @@ export class WebhooksService {
           * Exact amount matching.
           */
           if (
-            payment.amount !==
+            payment.amount >
             transferAmount
           ) {
             await tx.webhookLog.update({
@@ -403,8 +403,7 @@ export class WebhooksService {
 
                 processedAt: now,
 
-                errorMessage:
-                  'Payment amount mismatch',
+                errorMessage: 'Transferred amount is less than required',
               },
             });
 
