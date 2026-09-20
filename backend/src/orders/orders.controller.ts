@@ -15,13 +15,17 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user.type.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import { OrdersService } from './orders.service.js';
+import { PaymentsService } from '../payments/payments.service.js';
 
 const MAX_SIGNED_BIGINT = 9223372036854775807n;
 
 @UseGuards(JwtAuthGuard)
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly paymentsService: PaymentsService,
+  ) {}
 
   @Post()
   create(
@@ -45,6 +49,14 @@ export class OrdersController {
   @Get(':id')
   findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.ordersService.findByIdForUser(this.parseOrderId(id), user.id);
+  }
+
+  @Post(':id/payments')
+  createBankTransferPayment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+  ) {
+    return this.paymentsService.createForOrder(user.id, this.parseOrderId(id));
   }
 
   @Post(':id/pay-with-balance')

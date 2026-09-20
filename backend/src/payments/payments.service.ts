@@ -76,6 +76,96 @@ export class PaymentsService {
     );
   }
 
+  //tao ma thanh toan cho don hang
+  async createForOrder(userId: bigint, orderId: bigint) {
+    const expiresInMinutes = Number(
+      this.configService.get<string>('PAYMENT_EXPIRES_IN_MINUTES') ?? '15',
+    );
+
+    const expiredAt = new Date(
+      Date.now() + expiresInMinutes * 60 * 1000,
+    );
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const paymentCode = this.generatePaymentCode();
+
+      try {
+        const payment = await this.prisma.$transaction(async (tx) => {
+          const [order] = await tx.$queryRaw<LockedOrder[]>`
+            SELECT id, user_id, total_amount, status
+            FROM orders
+            WHERE id = ${orderId} AND user_id = ${userId}
+            LIMIT 1
+            FOR UPDATE
+          `;
+
+          if (!order) {
+            throw new NotFoundException('Order not found');
+          }
+
+          if (order.status !== OrderStatus.PENDING) {
+            throw new ConflictException('Order is not pending');
+          }
+
+          const [existingPayment] =
+            await tx.$queryRaw<LockedPaymentReference[]>`
+              SELECT id
+              FROM payments
+              WHERE order_id = ${order.id}
+              LIMIT 1
+              FOR UPDATE
+            `;
+
+          if (existingPayment) {
+            throw new ConflictException(
+              'Order already has a payment',
+            );
+          }
+
+          return tx.payment.create({
+            data: {
+              userId: order.user_id,
+              orderId: order.id,
+              paymentCode,
+              amount: order.total_amount,
+              method: PaymentMethod.BANK_TRANSFER,
+              status: PaymentStatus.PENDING,
+              expiredAt,
+            },
+          });
+        });
+
+        return this.toResponse(payment);
+      } catch (error) {
+        if (
+          this.isUniqueCollision(error, [
+            'payment_code',
+            'paymentCode',
+          ])
+        ) {
+          continue;
+        }
+
+        if (
+          this.isUniqueCollision(error, [
+            'order_id',
+            'orderId',
+          ])
+        ) {
+          throw new ConflictException(
+            'Order already has a payment',
+          );
+        }
+
+        throw error;
+      }
+    }
+
+    throw new InternalServerErrorException(
+      'Unable to generate unique payment code',
+    );
+  }
+
   async findByIdForUser(paymentId: bigint, userId: bigint) {
     const payment = await this.prisma.payment.findFirst({
       where: {
@@ -118,8 +208,34 @@ export class PaymentsService {
     return payments.map((payment) => this.toResponse(payment));
   }
 
+
   private generatePaymentCode() {
     return `PAY${randomBytes(6).toString('hex').toUpperCase()}`;
+  }
+
+
+  private isUniqueCollision(
+    error: unknown,
+    fields: string[],
+  ) {
+    if (
+      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+      error.code !== 'P2002'
+    ) {
+      return false;
+    }
+
+    const target = error.meta?.target;
+
+    const targetText = Array.isArray(target)
+      ? target.map(String).join(',')
+      : String(target ?? '');
+
+    return fields.some(
+      (field) =>
+        targetText.includes(field) ||
+        error.message.includes(field),
+    );
   }
 
   private toResponse(payment: Payment) {
