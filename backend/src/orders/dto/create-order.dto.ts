@@ -34,10 +34,7 @@ export class CreateOrderDto {
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(50)
-  @ArrayUnique(
-    (item: CreateOrderItemDto) =>
-      item.productId,
-  )
+  @ArrayUnique((item: CreateOrderItemDto) => item.productId)
   @ValidateNested({
     each: true,
   })

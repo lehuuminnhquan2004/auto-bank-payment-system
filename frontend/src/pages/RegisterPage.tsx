@@ -1,39 +1,24 @@
-import {
-  useState,
-  type FormEvent,
-} from 'react';
-import {
-  Link,
-  useNavigate,
-} from 'react-router-dom';
+import { useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { apiClient } from '../api/client';
 import { getApiErrorMessage } from '../api/error';
-import type {
-  RegisterResponse,
-} from '../types/auth';
+import type { RegisterResponse } from '../types/auth';
 
 export function RegisterPage() {
   const navigate = useNavigate();
 
-  const [email, setEmail] =
-    useState('');
+  const [email, setEmail] = useState('');
 
-  const [password, setPassword] =
-    useState('');
+  const [password, setPassword] = useState('');
 
-  const [confirmPassword, setConfirmPassword] =
-    useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const [error, setError] =
-    useState('');
+  const [error, setError] = useState('');
 
-  const [submitting, setSubmitting] =
-    useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (submitting) {
@@ -43,20 +28,13 @@ export function RegisterPage() {
     setError('');
 
     if (password !== confirmPassword) {
-      setError(
-        'Mật khẩu xác nhận không khớp.',
-      );
+      setError('Mật khẩu xác nhận không khớp.');
 
       return;
     }
 
-    if (
-      password.length < 8 ||
-      password.length > 128
-    ) {
-      setError(
-        'Mật khẩu phải có từ 8 đến 128 ký tự.',
-      );
+    if (password.length < 8 || password.length > 128) {
+      setError('Mật khẩu phải có từ 8 đến 128 ký tự.');
 
       return;
     }
@@ -64,16 +42,11 @@ export function RegisterPage() {
     setSubmitting(true);
 
     try {
-      await apiClient.post<RegisterResponse>(
-        '/auth/register',
-        {
-          email: email
-            .trim()
-            .toLowerCase(),
+      await apiClient.post<RegisterResponse>('/auth/register', {
+        email: email.trim().toLowerCase(),
 
-          password,
-        },
-      );
+        password,
+      });
 
       navigate('/login', {
         replace: true,
@@ -84,10 +57,7 @@ export function RegisterPage() {
       });
     } catch (error) {
       setError(
-        getApiErrorMessage(
-          error,
-          'Không thể tạo tài khoản. Vui lòng thử lại.',
-        ),
+        getApiErrorMessage(error, 'Không thể tạo tài khoản. Vui lòng thử lại.'),
       );
     } finally {
       setSubmitting(false);
@@ -98,30 +68,22 @@ export function RegisterPage() {
     <main className="auth-page">
       <span className="eyebrow">BẮT ĐẦU CÙNG AUTOBANK</span>
       <h1>Tạo tài khoản</h1>
-      <p className="page-description">Đăng ký để quản lý thanh toán thuận tiện trong một tài khoản.</p>
+      <p className="page-description">
+        Đăng ký để quản lý thanh toán thuận tiện trong một tài khoản.
+      </p>
 
-      {error && (
-        <p role="alert">
-          {error}
-        </p>
-      )}
+      {error && <p role="alert">{error}</p>}
 
       <form onSubmit={handleSubmit}>
         <div>
-          <label htmlFor="email">
-            Địa chỉ email
-          </label>
+          <label htmlFor="email">Địa chỉ email</label>
 
           <input
             id="email"
             name="email"
             type="email"
             value={email}
-            onChange={(event) =>
-              setEmail(
-                event.target.value,
-              )
-            }
+            onChange={(event) => setEmail(event.target.value)}
             required
             maxLength={255}
             autoComplete="email"
@@ -129,20 +91,14 @@ export function RegisterPage() {
         </div>
 
         <div>
-          <label htmlFor="password">
-            Mật khẩu
-          </label>
+          <label htmlFor="password">Mật khẩu</label>
 
           <input
             id="password"
             name="password"
             type="password"
             value={password}
-            onChange={(event) =>
-              setPassword(
-                event.target.value,
-              )
-            }
+            onChange={(event) => setPassword(event.target.value)}
             required
             minLength={8}
             maxLength={128}
@@ -151,20 +107,14 @@ export function RegisterPage() {
         </div>
 
         <div>
-          <label htmlFor="confirmPassword">
-            Nhập lại mật khẩu
-          </label>
+          <label htmlFor="confirmPassword">Nhập lại mật khẩu</label>
 
           <input
             id="confirmPassword"
             name="confirmPassword"
             type="password"
             value={confirmPassword}
-            onChange={(event) =>
-              setConfirmPassword(
-                event.target.value,
-              )
-            }
+            onChange={(event) => setConfirmPassword(event.target.value)}
             required
             minLength={8}
             maxLength={128}
@@ -172,21 +122,13 @@ export function RegisterPage() {
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={submitting}
-        >
-          {submitting
-            ? 'Đang tạo tài khoản...'
-            : 'Đăng ký'}
+        <button type="submit" disabled={submitting}>
+          {submitting ? 'Đang tạo tài khoản...' : 'Đăng ký'}
         </button>
       </form>
 
       <p>
-        Bạn đã có tài khoản?{' '}
-        <Link to="/login">
-          Đăng nhập
-        </Link>
+        Bạn đã có tài khoản? <Link to="/login">Đăng nhập</Link>
       </p>
     </main>
   );

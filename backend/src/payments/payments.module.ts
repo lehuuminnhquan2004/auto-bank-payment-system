@@ -5,10 +5,9 @@ import { PaymentsService } from './payments.service.js';
 import { AuthModule } from '../auth/auth.module.js';
 
 @Module({
-  imports: [
-    AuthModule,
-  ],
+  imports: [AuthModule],
   controllers: [PaymentsController],
   providers: [PaymentsService],
+  exports: [PaymentsService],
 })
 export class PaymentsModule {}

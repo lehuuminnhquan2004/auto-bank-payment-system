@@ -1,10 +1,4 @@
-import {
-  BrowserRouter,
-  Link,
-  Navigate,
-  Route,
-  Routes,
-} from 'react-router-dom';
+import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
 
 import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
@@ -20,54 +14,37 @@ function App() {
       <AuthProvider>
         <header className="site-header">
           <Link to="/" className="brand" aria-label="Trang chủ AutoBank">
-            <span className="brand-mark" aria-hidden="true">A<span>↗</span></span>
-            <span>Auto<span className="brand-accent">Bank</span><small>THANH TOÁN TRỰC TUYẾN</small></span>
+            <span className="brand-mark" aria-hidden="true">
+              A<span>↗</span>
+            </span>
+            <span>
+              Auto<span className="brand-accent">Bank</span>
+              <small>THANH TOÁN TRỰC TUYẾN</small>
+            </span>
           </Link>
-          <span className="header-caption">Thanh toán đơn giản, giao dịch dễ dàng.</span>
+          <span className="header-caption">
+            Thanh toán đơn giản, giao dịch dễ dàng.
+          </span>
         </header>
         <Routes>
-          <Route
-            path="/login"
-            element={<LoginPage />}
-          />
+          <Route path="/login" element={<LoginPage />} />
 
-          <Route
-            path="/register"
-            element={<RegisterPage />}
-          />
+          <Route path="/register" element={<RegisterPage />} />
 
-          <Route
-            element={<ProtectedRoute />}
-          >
-            <Route
-              path="/"
-              element={<DashboardPage />}
-            />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<DashboardPage />} />
 
-            <Route
-              path="/payments/new"
-              element={
-                <CreatePaymentPage />
-              }
-            />
+            <Route path="/payments/new" element={<CreatePaymentPage />} />
 
-            <Route
-              path="/payments/:id"
-              element={<PaymentPage />}
-            />
+            <Route path="/payments/:id" element={<PaymentPage />} />
           </Route>
 
-          <Route
-            path="*"
-            element={
-              <Navigate
-                to="/"
-                replace
-              />
-            }
-          />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        <footer className="site-footer"><span>AutoBank · Thanh toán qua ngân hàng</span><span>Đơn giản. Minh bạch. Tiện lợi.</span></footer>
+        <footer className="site-footer">
+          <span>AutoBank · Thanh toán qua ngân hàng</span>
+          <span>Đơn giản. Minh bạch. Tiện lợi.</span>
+        </footer>
       </AuthProvider>
     </BrowserRouter>
   );

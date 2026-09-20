@@ -17,20 +17,20 @@ export class PrismaService
       password: configService.getOrThrow<string>('DATABASE_PASSWORD'),
       database: configService.getOrThrow<string>('DATABASE_NAME'),
       connectionLimit: 5,
-      allowPublicKeyRetrieval: true
+      allowPublicKeyRetrieval: true,
     });
 
     super({ adapter });
   }
 
   async onModuleInit() {
-    try{
-    await this.$connect();
-    await this.$queryRaw`SELECT 1`;
-    console.log('Database connected');
+    try {
+      await this.$connect();
+      await this.$queryRaw`SELECT 1`;
+      console.log('Database connected');
     } catch (error) {
-    console.error('Database connection failed');
-    throw error;
+      console.error('Database connection failed');
+      throw error;
     }
   }
 

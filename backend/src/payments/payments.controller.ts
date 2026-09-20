@@ -17,44 +17,27 @@ import { PaymentsService } from './payments.service.js';
 @UseGuards(JwtAuthGuard)
 @Controller('payments')
 export class PaymentsController {
-  constructor(
-    private readonly paymentsService: PaymentsService,
-  ) {}
+  constructor(private readonly paymentsService: PaymentsService) {}
 
   @Post()
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreatePaymentDto,
   ) {
-    return this.paymentsService.create(
-      user.id,
-      dto.amount,
-    );
+    return this.paymentsService.create(user.id, dto.amount);
   }
 
   @Get()
-  findAll(
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.paymentsService.findAllForUser(
-      user.id,
-    );
+  findAll(@CurrentUser() user: AuthenticatedUser) {
+    return this.paymentsService.findAllForUser(user.id);
   }
 
   @Get(':id')
-  findOne(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  findOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     if (!/^\d+$/.test(id)) {
-      throw new BadRequestException(
-        'Invalid payment id',
-      );
+      throw new BadRequestException('Invalid payment id');
     }
 
-    return this.paymentsService.findByIdForUser(
-      BigInt(id),
-      user.id,
-    );
+    return this.paymentsService.findByIdForUser(BigInt(id), user.id);
   }
 }

@@ -12,7 +12,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 @Module({
   imports: [
     UsersModule,
-    
+
     PassportModule.register({
       defaultStrategy: 'jwt',
     }),
@@ -33,14 +33,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    JwtStrategy,
-    JwtAuthGuard,
-  ],
-  exports: [
-    PassportModule,
-    JwtAuthGuard,
-  ],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard],
+  exports: [PassportModule, JwtAuthGuard],
 })
 export class AuthModule {}

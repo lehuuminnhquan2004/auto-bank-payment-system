@@ -54,11 +54,7 @@ describe('Database integration', () => {
       where: {
         provider: 'TEST',
         providerTransactionId: {
-          in: [
-            transactionId1,
-            transactionId2,
-            invalidTransactionId,
-          ],
+          in: [transactionId1, transactionId2, invalidTransactionId],
         },
       },
     });

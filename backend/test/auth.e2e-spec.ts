@@ -13,10 +13,9 @@ describe('AuthController (e2e)', () => {
   const password = 'Password123!';
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule =
-      await Test.createTestingModule({
-        imports: [AppModule],
-      }).compile();
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
 
     app = moduleFixture.createNestApplication();
 
@@ -147,28 +146,20 @@ describe('AuthController (e2e)', () => {
   });
 
   it('/api/auth/me without token (GET)', async () => {
-    await request(app.getHttpServer())
-      .get('/api/auth/me')
-      .expect(401);
+    await request(app.getHttpServer()).get('/api/auth/me').expect(401);
   });
 
   it('/api/auth/me invalid token (GET)', async () => {
     await request(app.getHttpServer())
       .get('/api/auth/me')
-      .set(
-        'Authorization',
-        'Bearer invalid-token',
-      )
+      .set('Authorization', 'Bearer invalid-token')
       .expect(401);
   });
 
   it('/api/auth/me valid token (GET)', async () => {
     const response = await request(app.getHttpServer())
       .get('/api/auth/me')
-      .set(
-        'Authorization',
-        `Bearer ${accessToken}`,
-      )
+      .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
     expect(response.body.email).toBe(email);

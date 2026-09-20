@@ -13,13 +13,9 @@ import type { RawBodyRequest } from '@nestjs/common';
 import { SePayWebhookDto } from './dto/sepay-webhook.dto.js';
 import { WebhooksService } from './webhooks.service.js';
 
-
-
 @Controller('webhooks')
 export class WebhooksController {
-  constructor(
-    private readonly webhooksService: WebhooksService,
-  ) {}
+  constructor(private readonly webhooksService: WebhooksService) {}
 
   @Post('sepay')
   @HttpCode(HttpStatus.OK)
@@ -37,9 +33,7 @@ export class WebhooksController {
     dto: SePayWebhookDto,
   ) {
     if (!request.rawBody) {
-      throw new Error(
-        'Raw request body is unavailable',
-      );
+      throw new Error('Raw request body is unavailable');
     }
 
     this.webhooksService.verifySePaySignature(
@@ -47,16 +41,10 @@ export class WebhooksController {
       signature,
       timestamp,
     );
-    
-    const webhookLog = await this.webhooksService.receiveSePayWebhook(
-      dto,
-    );
 
+    const webhookLog = await this.webhooksService.receiveSePayWebhook(dto);
 
-    await this.webhooksService.processSePayWebhook(
-      webhookLog.id,
-      dto,
-    );
+    await this.webhooksService.processSePayWebhook(webhookLog.id, dto);
 
     return {
       success: true,

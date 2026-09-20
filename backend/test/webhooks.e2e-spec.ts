@@ -1,7 +1,4 @@
-import {
-  INestApplication,
-  ValidationPipe,
-} from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { createHmac } from 'crypto';
@@ -34,10 +31,9 @@ describe('SePay Webhook (e2e)', () => {
   let paymentId: bigint;
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule =
-      await Test.createTestingModule({
-        imports: [AppModule],
-      }).compile();
+    const moduleFixture: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
 
     app = moduleFixture.createNestApplication({
       rawBody: true,
@@ -58,10 +54,7 @@ describe('SePay Webhook (e2e)', () => {
     prisma = app.get(PrismaService);
     configService = app.get(ConfigService);
 
-    webhookSecret =
-      configService.getOrThrow<string>(
-        'SEPAY_WEBHOOK_SECRET',
-      );
+    webhookSecret = configService.getOrThrow<string>('SEPAY_WEBHOOK_SECRET');
 
     /*
      * Create test user directly in DB.
@@ -87,9 +80,7 @@ describe('SePay Webhook (e2e)', () => {
         paymentCode,
         amount: 100000n,
         status: PaymentStatus.PENDING,
-        expiredAt: new Date(
-          Date.now() + 15 * 60 * 1000,
-        ),
+        expiredAt: new Date(Date.now() + 15 * 60 * 1000),
       },
     });
 
@@ -103,8 +94,7 @@ describe('SePay Webhook (e2e)', () => {
     await prisma.webhookLog.deleteMany({
       where: {
         provider: 'SEPAY',
-        providerTransactionId:
-          sepayTransactionId.toString(),
+        providerTransactionId: sepayTransactionId.toString(),
       },
     });
 
@@ -115,8 +105,7 @@ describe('SePay Webhook (e2e)', () => {
     await prisma.bankTransaction.deleteMany({
       where: {
         provider: 'SEPAY',
-        providerTransactionId:
-          sepayTransactionId.toString(),
+        providerTransactionId: sepayTransactionId.toString(),
       },
     });
 
@@ -141,8 +130,7 @@ describe('SePay Webhook (e2e)', () => {
 
       gateway: 'MBBank',
 
-      transactionDate:
-        '2026-09-06 20:00:00',
+      transactionDate: '2026-09-06 20:00:00',
 
       accountNumber: '123456789',
 
@@ -160,24 +148,15 @@ describe('SePay Webhook (e2e)', () => {
 
       accumulated: 100000,
 
-      referenceCode:
-        `FT${sepayTransactionId}`,
+      referenceCode: `FT${sepayTransactionId}`,
     };
   }
 
-  function createSignature(
-    rawBody: string,
-    timestamp: string,
-  ) {
+  function createSignature(rawBody: string, timestamp: string) {
     return (
       'sha256=' +
-      createHmac(
-        'sha256',
-        webhookSecret,
-      )
-        .update(
-          `${timestamp}.${rawBody}`,
-        )
+      createHmac('sha256', webhookSecret)
+        .update(`${timestamp}.${rawBody}`)
         .digest('hex')
     );
   }
@@ -187,20 +166,12 @@ describe('SePay Webhook (e2e)', () => {
 
     const rawBody = JSON.stringify(payload);
 
-    const timestamp = Math.floor(
-      Date.now() / 1000,
-    ).toString();
+    const timestamp = Math.floor(Date.now() / 1000).toString();
 
     await request(app.getHttpServer())
       .post('/api/webhooks/sepay')
-      .set(
-        'Content-Type',
-        'application/json',
-      )
-      .set(
-        'X-SePay-Timestamp',
-        timestamp,
-      )
+      .set('Content-Type', 'application/json')
+      .set('X-SePay-Timestamp', timestamp)
       .send(rawBody)
       .expect(401);
   });
@@ -210,26 +181,14 @@ describe('SePay Webhook (e2e)', () => {
 
     const rawBody = JSON.stringify(payload);
 
-    const timestamp = Math.floor(
-      Date.now() / 1000,
-    ).toString();
+    const timestamp = Math.floor(Date.now() / 1000).toString();
 
-    const signature =
-      createSignature(
-        rawBody,
-        timestamp,
-      );
+    const signature = createSignature(rawBody, timestamp);
 
     await request(app.getHttpServer())
       .post('/api/webhooks/sepay')
-      .set(
-        'Content-Type',
-        'application/json',
-      )
-      .set(
-        'X-SePay-Signature',
-        signature,
-      )
+      .set('Content-Type', 'application/json')
+      .set('X-SePay-Signature', signature)
       .send(rawBody)
       .expect(401);
   });
@@ -243,30 +202,15 @@ describe('SePay Webhook (e2e)', () => {
      * 10 minutes old.
      * Current implementation allows only 5 minutes.
      */
-    const timestamp = Math.floor(
-      Date.now() / 1000 - 600,
-    ).toString();
+    const timestamp = Math.floor(Date.now() / 1000 - 600).toString();
 
-    const signature =
-      createSignature(
-        rawBody,
-        timestamp,
-      );
+    const signature = createSignature(rawBody, timestamp);
 
     await request(app.getHttpServer())
       .post('/api/webhooks/sepay')
-      .set(
-        'Content-Type',
-        'application/json',
-      )
-      .set(
-        'X-SePay-Timestamp',
-        timestamp,
-      )
-      .set(
-        'X-SePay-Signature',
-        signature,
-      )
+      .set('Content-Type', 'application/json')
+      .set('X-SePay-Timestamp', timestamp)
+      .set('X-SePay-Signature', signature)
       .send(rawBody)
       .expect(401);
   });
@@ -276,24 +220,13 @@ describe('SePay Webhook (e2e)', () => {
 
     const rawBody = JSON.stringify(payload);
 
-    const timestamp = Math.floor(
-      Date.now() / 1000,
-    ).toString();
+    const timestamp = Math.floor(Date.now() / 1000).toString();
 
     await request(app.getHttpServer())
       .post('/api/webhooks/sepay')
-      .set(
-        'Content-Type',
-        'application/json',
-      )
-      .set(
-        'X-SePay-Timestamp',
-        timestamp,
-      )
-      .set(
-        'X-SePay-Signature',
-        'sha256=invalid-signature',
-      )
+      .set('Content-Type', 'application/json')
+      .set('X-SePay-Timestamp', timestamp)
+      .set('X-SePay-Signature', 'sha256=invalid-signature')
       .send(rawBody)
       .expect(401);
   });
@@ -307,30 +240,15 @@ describe('SePay Webhook (e2e)', () => {
 
     const rawBody = JSON.stringify(payload);
 
-    const timestamp = Math.floor(
-      Date.now() / 1000,
-    ).toString();
+    const timestamp = Math.floor(Date.now() / 1000).toString();
 
-    const signature =
-      createSignature(
-        rawBody,
-        timestamp,
-      );
+    const signature = createSignature(rawBody, timestamp);
 
     await request(app.getHttpServer())
       .post('/api/webhooks/sepay')
-      .set(
-        'Content-Type',
-        'application/json',
-      )
-      .set(
-        'X-SePay-Timestamp',
-        timestamp,
-      )
-      .set(
-        'X-SePay-Signature',
-        signature,
-      )
+      .set('Content-Type', 'application/json')
+      .set('X-SePay-Timestamp', timestamp)
+      .set('X-SePay-Signature', signature)
       .send(rawBody)
       .expect(400);
   });
@@ -340,135 +258,84 @@ describe('SePay Webhook (e2e)', () => {
 
     const rawBody = JSON.stringify(payload);
 
-    const timestamp = Math.floor(
-      Date.now() / 1000,
-    ).toString();
+    const timestamp = Math.floor(Date.now() / 1000).toString();
 
-    const signature =
-      createSignature(
-        rawBody,
-        timestamp,
-      );
+    const signature = createSignature(rawBody, timestamp);
 
-    const response =
-      await request(
-        app.getHttpServer(),
-      )
-        .post('/api/webhooks/sepay')
-        .set(
-          'Content-Type',
-          'application/json',
-        )
-        .set(
-          'X-SePay-Timestamp',
-          timestamp,
-        )
-        .set(
-          'X-SePay-Signature',
-          signature,
-        )
-        .send(rawBody)
-        .expect(200);
+    const response = await request(app.getHttpServer())
+      .post('/api/webhooks/sepay')
+      .set('Content-Type', 'application/json')
+      .set('X-SePay-Timestamp', timestamp)
+      .set('X-SePay-Signature', signature)
+      .send(rawBody)
+      .expect(200);
 
-    expect(
-      response.body.success,
-    ).toBe(true);
+    expect(response.body.success).toBe(true);
   });
 
   it('should create WebhookLog with RECEIVED status', async () => {
-    const webhookLog =
-      await prisma.webhookLog.findFirst({
-        where: {
-          provider: 'SEPAY',
-          providerTransactionId:
-            sepayTransactionId.toString(),
-        },
-      });
+    const webhookLog = await prisma.webhookLog.findFirst({
+      where: {
+        provider: 'SEPAY',
+        providerTransactionId: sepayTransactionId.toString(),
+      },
+    });
 
     expect(webhookLog).not.toBeNull();
 
-    expect(webhookLog?.status).toBe(
-      WebhookStatus.RECEIVED,
-    );
+    expect(webhookLog?.status).toBe(WebhookStatus.RECEIVED);
 
-    expect(
-      webhookLog?.providerTransactionId,
-    ).toBe(
+    expect(webhookLog?.providerTransactionId).toBe(
       sepayTransactionId.toString(),
     );
 
-    expect(
-      webhookLog?.processedAt,
-    ).toBeNull();
+    expect(webhookLog?.processedAt).toBeNull();
 
-    expect(
-      webhookLog?.errorMessage,
-    ).toBeNull();
+    expect(webhookLog?.errorMessage).toBeNull();
   });
 
   it('should store webhook payload', async () => {
-    const webhookLog =
-      await prisma.webhookLog.findFirst({
-        where: {
-          provider: 'SEPAY',
-          providerTransactionId:
-            sepayTransactionId.toString(),
-        },
-      });
+    const webhookLog = await prisma.webhookLog.findFirst({
+      where: {
+        provider: 'SEPAY',
+        providerTransactionId: sepayTransactionId.toString(),
+      },
+    });
 
     expect(webhookLog).not.toBeNull();
 
-    const payload =
-      webhookLog?.payload as Record<
-        string,
-        unknown
-      >;
+    const payload = webhookLog?.payload as Record<string, unknown>;
 
-    expect(payload.id).toBe(
-      sepayTransactionId,
-    );
+    expect(payload.id).toBe(sepayTransactionId);
 
-    expect(payload.gateway).toBe(
-      'MBBank',
-    );
+    expect(payload.gateway).toBe('MBBank');
 
-    expect(payload.content).toBe(
-      paymentCode,
-    );
+    expect(payload.content).toBe(paymentCode);
 
-    expect(
-      payload.transferAmount,
-    ).toBe(100000);
+    expect(payload.transferAmount).toBe(100000);
   });
 
   it('should not mark Payment as PAID in Phase 6', async () => {
-    const payment =
-      await prisma.payment.findUniqueOrThrow({
-        where: {
-          id: paymentId,
-        },
-      });
+    const payment = await prisma.payment.findUniqueOrThrow({
+      where: {
+        id: paymentId,
+      },
+    });
 
-    expect(payment.status).toBe(
-      PaymentStatus.PENDING,
-    );
+    expect(payment.status).toBe(PaymentStatus.PENDING);
 
     expect(payment.paidAt).toBeNull();
 
-    expect(payment.amount).toBe(
-      100000n,
-    );
+    expect(payment.amount).toBe(100000n);
   });
 
   it('should not create BankTransaction in Phase 6', async () => {
-    const transaction =
-      await prisma.bankTransaction.findFirst({
-        where: {
-          provider: 'SEPAY',
-          providerTransactionId:
-            sepayTransactionId.toString(),
-        },
-      });
+    const transaction = await prisma.bankTransaction.findFirst({
+      where: {
+        provider: 'SEPAY',
+        providerTransactionId: sepayTransactionId.toString(),
+      },
+    });
 
     expect(transaction).toBeNull();
   });

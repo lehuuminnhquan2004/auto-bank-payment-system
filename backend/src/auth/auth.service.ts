@@ -32,58 +32,47 @@ export class AuthService {
 
     const passwordHash = await argon2.hash(dto.password);
 
-    try{
-        const user = await this.usersService.create(
-            email,
-            passwordHash,
-        );
+    try {
+      const user = await this.usersService.create(email, passwordHash);
 
-        return {
-            id: user.id.toString(),
-            email: user.email,
-        };
-    }catch (error) {
+      return {
+        id: user.id.toString(),
+        email: user.email,
+      };
+    } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
-        ) {
-            throw new ConflictException('Email already exists');
-        }
+      ) {
+        throw new ConflictException('Email already exists');
+      }
 
       throw error;
     }
+  }
+
+  //Dang nhap nguoi dung
+  async login(dto: LoginDto) {
+    const email = dto.email.trim().toLowerCase();
+
+    const user = await this.usersService.findByEmail(email);
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or password');
     }
 
-    //Dang nhap nguoi dung
-    async login(dto: LoginDto) {
-        const email = dto.email.trim().toLowerCase();
+    const passwordValid = await argon2.verify(user.passwordHash, dto.password);
 
-        const user = await this.usersService.findByEmail(email);
-
-        if (!user) {
-            throw new UnauthorizedException(
-            'Invalid email or password',
-            );
-        }
-
-        const passwordValid = await argon2.verify(
-            user.passwordHash,
-            dto.password,
-        );
-
-        if (!passwordValid) {
-            throw new UnauthorizedException(
-            'Invalid email or password',
-            );
-        }
-
-        const accessToken = await this.jwtService.signAsync({
-            sub: user.id.toString(),
-        });
-
-        return {
-            accessToken,
-        };
+    if (!passwordValid) {
+      throw new UnauthorizedException('Invalid email or password');
     }
-  
+
+    const accessToken = await this.jwtService.signAsync({
+      sub: user.id.toString(),
+    });
+
+    return {
+      accessToken,
+    };
+  }
 }

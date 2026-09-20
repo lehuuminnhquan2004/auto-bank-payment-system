@@ -1,8 +1,4 @@
-export type PaymentStatus =
-  | 'PENDING'
-  | 'PAID'
-  | 'EXPIRED'
-  | 'FAILED';
+export type PaymentStatus = 'PENDING' | 'PAID' | 'EXPIRED' | 'FAILED';
 
 export type BankInfo = {
   bankId: string;

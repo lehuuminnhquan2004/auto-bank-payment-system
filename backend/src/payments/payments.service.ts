@@ -2,12 +2,30 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 
-import { Payment, PaymentStatus, Prisma, PaymentMethod } from '../generated/prisma/client.js';
+import {
+  Payment,
+  PaymentStatus,
+  Prisma,
+  PaymentMethod,
+  OrderStatus,
+} from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+
+type LockedOrder = {
+  id: bigint;
+  user_id: bigint;
+  total_amount: bigint;
+  status: OrderStatus;
+};
+
+type LockedPaymentReference = {
+  id: bigint;
+};
 
 @Injectable()
 export class PaymentsService {
@@ -17,23 +35,18 @@ export class PaymentsService {
   ) {}
 
   async create(userId: bigint, amount: number) {
-
     const expiresInMinutes = Number(
-      this.configService.get<string>(
-        'PAYMENT_EXPIRES_IN_MINUTES',
-      ) ?? '15',
+      this.configService.get<string>('PAYMENT_EXPIRES_IN_MINUTES') ?? '15',
     );
 
-    const expiredAt = new Date(
-      Date.now() + expiresInMinutes * 60 * 1000,
-    );
+    const expiredAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
     const maxRetries = 5;
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       const paymentCode = this.generatePaymentCode();
 
-      try{
+      try {
         const payment = await this.prisma.payment.create({
           data: {
             userId,
@@ -46,8 +59,8 @@ export class PaymentsService {
           },
         });
 
-      return this.toResponse(payment);
-      }catch(error){
+        return this.toResponse(payment);
+      } catch (error) {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
           error.code === 'P2002'
@@ -61,13 +74,9 @@ export class PaymentsService {
     throw new InternalServerErrorException(
       'Unable to generate unique payment code',
     );
-    
   }
 
-  async findByIdForUser(
-    paymentId: bigint,
-    userId: bigint,
-  ) {
+  async findByIdForUser(paymentId: bigint, userId: bigint) {
     const payment = await this.prisma.payment.findFirst({
       where: {
         id: paymentId,
@@ -106,23 +115,19 @@ export class PaymentsService {
       },
     });
 
-    return payments.map((payment) =>
-      this.toResponse(payment),
-    );
+    return payments.map((payment) => this.toResponse(payment));
   }
 
   private generatePaymentCode() {
-    return `PAY${randomBytes(6)
-      .toString('hex')
-      .toUpperCase()}`;
+    return `PAY${randomBytes(6).toString('hex').toUpperCase()}`;
   }
 
   private toResponse(payment: Payment) {
-    const isBankTransfer=payment.method===PaymentMethod.BANK_TRANSFER;
-    
+    const isBankTransfer = payment.method === PaymentMethod.BANK_TRANSFER;
+
     return {
       id: payment.id.toString(),
-      orderId: payment.orderId?.toString()??null,
+      orderId: payment.orderId?.toString() ?? null,
       method: payment.method,
       paymentCode: payment.paymentCode,
       amount: payment.amount.toString(),
@@ -132,32 +137,26 @@ export class PaymentsService {
       expiredAt: payment.expiredAt,
       paidAt: payment.paidAt,
       bank: isBankTransfer
-      ? {
-          bankId:this.configService.getOrThrow<string>('BANK_ID',),
-          accountNo:this.configService.getOrThrow<string>('BANK_ACCOUNT_NO',),
-          accountName:this.configService.getOrThrow<string>('BANK_ACCOUNT_NAME',),
-        }
-      : null,
+        ? {
+            bankId: this.configService.getOrThrow<string>('BANK_ID'),
+            accountNo: this.configService.getOrThrow<string>('BANK_ACCOUNT_NO'),
+            accountName:
+              this.configService.getOrThrow<string>('BANK_ACCOUNT_NAME'),
+          }
+        : null,
       qrUrl: isBankTransfer
-      ? this.buildQrUrl(
-          payment.amount,
-          payment.paymentCode,
-        )
-      : null,
+        ? this.buildQrUrl(payment.amount, payment.paymentCode)
+        : null,
     };
   }
-  
-//Lazy expiration
-  private async expireIfNeeded(
-    payment: Payment,
-    ): Promise<Payment> {
-    if (
-      payment.status !== PaymentStatus.PENDING
-    ) {
+
+  //Lazy expiration
+  private async expireIfNeeded(payment: Payment): Promise<Payment> {
+    if (payment.status !== PaymentStatus.PENDING) {
       return payment;
     }
 
-    if(payment.expiredAt ===null){
+    if (payment.expiredAt === null) {
       throw new InternalServerErrorException(
         'Payment expiredAt is null for pending payment',
       );
@@ -184,27 +183,16 @@ export class PaymentsService {
   }
 
   //TAO QR URL
-  private buildQrUrl(
-    amount: bigint,
-    paymentCode: string,
-  ) {
-    const bankId =
-      this.configService.getOrThrow<string>('BANK_ID');
+  private buildQrUrl(amount: bigint, paymentCode: string) {
+    const bankId = this.configService.getOrThrow<string>('BANK_ID');
 
-    const accountNo =
-      this.configService.getOrThrow<string>(
-        'BANK_ACCOUNT_NO',
-      );
+    const accountNo = this.configService.getOrThrow<string>('BANK_ACCOUNT_NO');
 
     const accountName =
-      this.configService.getOrThrow<string>(
-        'BANK_ACCOUNT_NAME',
-      );
+      this.configService.getOrThrow<string>('BANK_ACCOUNT_NAME');
 
     const template =
-      this.configService.get<string>(
-        'VIETQR_TEMPLATE',
-      ) ?? 'compact2';
+      this.configService.get<string>('VIETQR_TEMPLATE') ?? 'compact2';
 
     const params = new URLSearchParams({
       amount: amount.toString(),
@@ -220,11 +208,4 @@ export class PaymentsService {
       params.toString()
     );
   }
-
-
-
-
-
-
-
 }

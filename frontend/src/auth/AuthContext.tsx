@@ -8,56 +8,36 @@ import {
 } from 'react';
 
 import { apiClient } from '../api/client';
-import type {
-  LoginResponse,
-  User,
-} from '../types/auth';
+import type { LoginResponse, User } from '../types/auth';
 
-import {AUTH_UNAUTHORIZED_EVENT} from './events';
+import { AUTH_UNAUTHORIZED_EVENT } from './events';
 
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
-  login: (
-    email: string,
-    password: string,
-  ) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
 
   refreshUser: () => Promise<void>;
 };
 
-
-const AuthContext =
-  createContext<AuthContextValue | null>(
-    null,
-  );
+const AuthContext = createContext<AuthContextValue | null>(null);
 
 type AuthProviderProps = {
   children: ReactNode;
 };
 
+export function AuthProvider({ children }: AuthProviderProps) {
+  const [user, setUser] = useState<User | null>(null);
 
-export function AuthProvider({
-  children,
-}: AuthProviderProps) {
-  const [user, setUser] =
-    useState<User | null>(null);
-
-  const [loading, setLoading] =
-    useState(true);
-  
+  const [loading, setLoading] = useState(true);
 
   //Tai lai trong tin nguoi dung
-  const refreshUser =
-    useCallback(async () => {
-      const response =
-        await apiClient.get<User>(
-          '/auth/me',
-        );
+  const refreshUser = useCallback(async () => {
+    const response = await apiClient.get<User>('/auth/me');
 
-      setUser(response.data);
-    }, []);
+    setUser(response.data);
+  }, []);
 
   //Xoa nguoi dung khi co su kien unauthorized
   useEffect(() => {
@@ -65,25 +45,16 @@ export function AuthProvider({
       setUser(null);
     }
 
-    window.addEventListener(
-      AUTH_UNAUTHORIZED_EVENT,
-      handleUnauthorized,
-    );
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
 
     return () => {
-      window.removeEventListener(
-        AUTH_UNAUTHORIZED_EVENT,
-        handleUnauthorized,
-      );
+      window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
     };
   }, []);
-  
+
   useEffect(() => {
     async function loadUser() {
-      const token =
-        localStorage.getItem(
-          'accessToken',
-        );
+      const token = localStorage.getItem('accessToken');
 
       if (!token) {
         setLoading(false);
@@ -93,9 +64,7 @@ export function AuthProvider({
       try {
         await refreshUser();
       } catch {
-        localStorage.removeItem(
-          'accessToken',
-        );
+        localStorage.removeItem('accessToken');
 
         setUser(null);
       } finally {
@@ -106,40 +75,25 @@ export function AuthProvider({
     void loadUser();
   }, []);
 
-  async function login(
-    email: string,
-    password: string,
-  ) {
-    const response =
-      await apiClient.post<LoginResponse>(
-        '/auth/login',
-        {
-          email,
-          password,
-        },
-      );
+  async function login(email: string, password: string) {
+    const response = await apiClient.post<LoginResponse>('/auth/login', {
+      email,
+      password,
+    });
 
-    localStorage.setItem(
-      'accessToken',
-      response.data.accessToken,
-    );
-    try{
+    localStorage.setItem('accessToken', response.data.accessToken);
+    try {
       await refreshUser();
-    }catch(error){
-      localStorage.removeItem(
-        'accessToken',
-      );
+    } catch (error) {
+      localStorage.removeItem('accessToken');
       setUser(null);
 
       throw error;
     }
-    
   }
 
   function logout() {
-    localStorage.removeItem(
-      'accessToken',
-    );
+    localStorage.removeItem('accessToken');
 
     setUser(null);
   }
@@ -160,13 +114,10 @@ export function AuthProvider({
 }
 
 export function useAuth() {
-  const context =
-    useContext(AuthContext);
+  const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error(
-      'useAuth must be used within AuthProvider',
-    );
+    throw new Error('useAuth must be used within AuthProvider');
   }
 
   return context;

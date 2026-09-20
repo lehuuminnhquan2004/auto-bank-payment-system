@@ -10,7 +10,7 @@ async function bootstrap() {
   app.enableCors({
     origin: 'http://localhost:5173',
   });
-  
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
