@@ -6,8 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 
-import { Payment, } from '../generated/prisma/client.js';
-import { PaymentStatus, Prisma, } from '../generated/prisma/client.js';
+import { Payment, PaymentStatus, Prisma, PaymentMethod } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 @Injectable()
@@ -38,9 +37,11 @@ export class PaymentsService {
         const payment = await this.prisma.payment.create({
           data: {
             userId,
+            orderId: null,
             paymentCode,
             amount: BigInt(amount),
             status: PaymentStatus.PENDING,
+            method: PaymentMethod.BANK_TRANSFER,
             expiredAt,
           },
         });
@@ -117,8 +118,12 @@ export class PaymentsService {
   }
 
   private toResponse(payment: Payment) {
+    const isBankTransfer=payment.method===PaymentMethod.BANK_TRANSFER;
+    
     return {
       id: payment.id.toString(),
+      orderId: payment.orderId?.toString()??null,
+      method: payment.method,
       paymentCode: payment.paymentCode,
       amount: payment.amount.toString(),
       status: payment.status,
@@ -126,19 +131,19 @@ export class PaymentsService {
       updatedAt: payment.updatedAt,
       expiredAt: payment.expiredAt,
       paidAt: payment.paidAt,
-      
-      qrUrl: this.buildQrUrl(
-      payment.amount,
-      payment.paymentCode,
-      ),
-      bank: {
-        bankId:
-          this.configService.getOrThrow<string>('BANK_ID'),
-        accountNo:
-          this.configService.getOrThrow<string>('BANK_ACCOUNT_NO'),
-        accountName:
-          this.configService.getOrThrow<string>('BANK_ACCOUNT_NAME'),
-      },
+      bank: isBankTransfer
+      ? {
+          bankId:this.configService.getOrThrow<string>('BANK_ID',),
+          accountNo:this.configService.getOrThrow<string>('BANK_ACCOUNT_NO',),
+          accountName:this.configService.getOrThrow<string>('BANK_ACCOUNT_NAME',),
+        }
+      : null,
+      qrUrl: isBankTransfer
+      ? this.buildQrUrl(
+          payment.amount,
+          payment.paymentCode,
+        )
+      : null,
     };
   }
   
@@ -147,9 +152,17 @@ export class PaymentsService {
     payment: Payment,
     ): Promise<Payment> {
     if (
-      payment.status !== PaymentStatus.PENDING ||
-      new Date() <= payment.expiredAt
+      payment.status !== PaymentStatus.PENDING
     ) {
+      return payment;
+    }
+
+    if(payment.expiredAt ===null){
+      throw new InternalServerErrorException(
+        'Payment expiredAt is null for pending payment',
+      );
+    }
+    if (payment.expiredAt > new Date()) {
       return payment;
     }
 
