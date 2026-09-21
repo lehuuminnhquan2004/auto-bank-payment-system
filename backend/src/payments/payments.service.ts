@@ -27,6 +27,18 @@ type LockedPaymentReference = {
   id: bigint;
 };
 
+type LockedOrderStatus = {
+  id: bigint;
+  status: OrderStatus;
+};
+
+type LockedPaymentForExpiry = {
+  id: bigint;
+  order_id: bigint | null;
+  status: PaymentStatus;
+  expired_at: Date | null;
+};
+
 @Injectable()
 export class PaymentsService {
   constructor(
@@ -82,9 +94,7 @@ export class PaymentsService {
       this.configService.get<string>('PAYMENT_EXPIRES_IN_MINUTES') ?? '15',
     );
 
-    const expiredAt = new Date(
-      Date.now() + expiresInMinutes * 60 * 1000,
-    );
+    const expiredAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
     for (let attempt = 0; attempt < 5; attempt++) {
       const paymentCode = this.generatePaymentCode();
@@ -107,8 +117,9 @@ export class PaymentsService {
             throw new ConflictException('Order is not pending');
           }
 
-          const [existingPayment] =
-            await tx.$queryRaw<LockedPaymentReference[]>`
+          const [existingPayment] = await tx.$queryRaw<
+            LockedPaymentReference[]
+          >`
               SELECT id
               FROM payments
               WHERE order_id = ${order.id}
@@ -117,9 +128,7 @@ export class PaymentsService {
             `;
 
           if (existingPayment) {
-            throw new ConflictException(
-              'Order already has a payment',
-            );
+            throw new ConflictException('Order already has a payment');
           }
 
           return tx.payment.create({
@@ -137,24 +146,12 @@ export class PaymentsService {
 
         return this.toResponse(payment);
       } catch (error) {
-        if (
-          this.isUniqueCollision(error, [
-            'payment_code',
-            'paymentCode',
-          ])
-        ) {
+        if (this.isUniqueCollision(error, ['payment_code', 'paymentCode'])) {
           continue;
         }
 
-        if (
-          this.isUniqueCollision(error, [
-            'order_id',
-            'orderId',
-          ])
-        ) {
-          throw new ConflictException(
-            'Order already has a payment',
-          );
+        if (this.isUniqueCollision(error, ['order_id', 'orderId'])) {
+          throw new ConflictException('Order already has a payment');
         }
 
         throw error;
@@ -164,6 +161,38 @@ export class PaymentsService {
     throw new InternalServerErrorException(
       'Unable to generate unique payment code',
     );
+  }
+
+  async expireOrderPaymentIfNeeded(userId: bigint, orderId: bigint) {
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        userId,
+        orderId,
+      },
+    });
+
+    if (payment) {
+      await this.expireIfNeeded(payment);
+    }
+  }
+
+  async expireOrderPaymentsForUser(userId: bigint) {
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        userId,
+        orderId: {
+          not: null,
+        },
+        status: PaymentStatus.PENDING,
+        expiredAt: {
+          lt: new Date(),
+        },
+      },
+    });
+
+    for (const payment of payments) {
+      await this.expireIfNeeded(payment);
+    }
   }
 
   async findByIdForUser(paymentId: bigint, userId: bigint) {
@@ -183,19 +212,6 @@ export class PaymentsService {
   }
 
   async findAllForUser(userId: bigint) {
-    await this.prisma.payment.updateMany({
-      where: {
-        userId,
-        status: PaymentStatus.PENDING,
-        expiredAt: {
-          lt: new Date(),
-        },
-      },
-      data: {
-        status: PaymentStatus.EXPIRED,
-      },
-    });
-
     const payments = await this.prisma.payment.findMany({
       where: {
         userId,
@@ -205,19 +221,20 @@ export class PaymentsService {
       },
     });
 
-    return payments.map((payment) => this.toResponse(payment));
-  }
+    const currentPayments: Payment[] = [];
 
+    for (const payment of payments) {
+      currentPayments.push(await this.expireIfNeeded(payment));
+    }
+
+    return currentPayments.map((payment) => this.toResponse(payment));
+  }
 
   private generatePaymentCode() {
     return `PAY${randomBytes(6).toString('hex').toUpperCase()}`;
   }
 
-
-  private isUniqueCollision(
-    error: unknown,
-    fields: string[],
-  ) {
+  private isUniqueCollision(error: unknown, fields: string[]) {
     if (
       !(error instanceof Prisma.PrismaClientKnownRequestError) ||
       error.code !== 'P2002'
@@ -232,9 +249,7 @@ export class PaymentsService {
       : String(target ?? '');
 
     return fields.some(
-      (field) =>
-        targetText.includes(field) ||
-        error.message.includes(field),
+      (field) => targetText.includes(field) || error.message.includes(field),
     );
   }
 
@@ -274,27 +289,132 @@ export class PaymentsService {
 
     if (payment.expiredAt === null) {
       throw new InternalServerErrorException(
-        'Payment expiredAt is null for pending payment',
+        'Pending payment has no expiration time',
       );
     }
+
     if (payment.expiredAt > new Date()) {
       return payment;
     }
 
-    await this.prisma.payment.updateMany({
-      where: {
-        id: payment.id,
-        status: PaymentStatus.PENDING,
-      },
-      data: {
-        status: PaymentStatus.EXPIRED,
-      },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      let lockedOrder: LockedOrderStatus | null = null;
 
-    return this.prisma.payment.findUniqueOrThrow({
-      where: {
-        id: payment.id,
-      },
+      /*
+       * Order Payment phải lock Order trước Payment.
+       */
+      if (payment.orderId !== null) {
+        const [order] = await tx.$queryRaw<LockedOrderStatus[]>`
+          SELECT id, status
+          FROM orders
+          WHERE id = ${payment.orderId}
+          LIMIT 1
+          FOR UPDATE
+        `;
+
+        lockedOrder = order ?? null;
+
+        if (!lockedOrder) {
+          throw new InternalServerErrorException(
+            'Payment references a missing order',
+          );
+        }
+      }
+
+      /*
+       * Đọc lại Payment sau khi đã lấy lock.
+       * Không tin trạng thái Payment đọc trước transaction.
+       */
+      const [lockedPayment] = await tx.$queryRaw<LockedPaymentForExpiry[]>`
+        SELECT id, order_id, status, expired_at
+        FROM payments
+        WHERE id = ${payment.id}
+        LIMIT 1
+        FOR UPDATE
+      `;
+
+      if (!lockedPayment) {
+        throw new NotFoundException('Payment not found');
+      }
+
+      if (lockedPayment.order_id !== payment.orderId) {
+        throw new InternalServerErrorException(
+          'Payment order reference changed',
+        );
+      }
+
+      /*
+       * Webhook có thể đã thanh toán Payment
+       * trong lúc request này đang chờ lock.
+       */
+      if (lockedPayment.status !== PaymentStatus.PENDING) {
+        return tx.payment.findUniqueOrThrow({
+          where: {
+            id: lockedPayment.id,
+          },
+        });
+      }
+
+      if (lockedPayment.expired_at === null) {
+        throw new InternalServerErrorException(
+          'Pending payment has no expiration time',
+        );
+      }
+
+      const now = new Date();
+
+      /*
+       * Kiểm tra lại thời gian sau khi đã lock.
+       */
+      if (lockedPayment.expired_at > now) {
+        return tx.payment.findUniqueOrThrow({
+          where: {
+            id: lockedPayment.id,
+          },
+        });
+      }
+
+      if (lockedOrder && lockedOrder.status !== OrderStatus.PENDING) {
+        throw new InternalServerErrorException(
+          'Pending payment belongs to a non-pending order',
+        );
+      }
+
+      const paymentUpdate = await tx.payment.updateMany({
+        where: {
+          id: lockedPayment.id,
+          status: PaymentStatus.PENDING,
+        },
+        data: {
+          status: PaymentStatus.EXPIRED,
+        },
+      });
+
+      if (paymentUpdate.count !== 1) {
+        throw new InternalServerErrorException('Unable to expire Payment');
+      }
+
+      if (lockedOrder) {
+        const orderUpdate = await tx.order.updateMany({
+          where: {
+            id: lockedOrder.id,
+            status: OrderStatus.PENDING,
+          },
+          data: {
+            status: OrderStatus.EXPIRED,
+          },
+        });
+
+        if (orderUpdate.count !== 1) {
+          throw new InternalServerErrorException('Unable to expire Order');
+        }
+      }
+
+      return tx.payment.findUniqueOrThrow({
+        where: {
+          id: lockedPayment.id,
+        },
+      });
     });
   }
 

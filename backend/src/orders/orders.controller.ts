@@ -67,6 +67,11 @@ export class OrdersController {
   ) {
     return this.ordersService.payWithBalance(user.id, this.parseOrderId(id));
   }
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  cancel(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    return this.ordersService.cancel(user.id, this.parseOrderId(id));
+  }
 
   private parseOrderId(id: string) {
     if (!/^[1-9]\d{0,18}$/.test(id)) {

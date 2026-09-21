@@ -15,6 +15,7 @@ import {
 } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
+import { PaymentsService } from '../payments/payments.service.js';
 
 const MAX_SIGNED_BIGINT = 9223372036854775807n;
 
@@ -43,11 +44,18 @@ type LockedUser = {
   id: bigint;
   balance: bigint;
 };
+type LockedPaymentForCancel = {
+  id: bigint;
+  status: PaymentStatus;
+};
 const MAX_PAYMENT_CODE_ATTEMPTS = 5;
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paymentsService: PaymentsService,
+  ) {}
 
   async create(userId: bigint, dto: CreateOrderDto) {
     const normalizedItems = this.normalizeItems(dto);
@@ -308,6 +316,91 @@ export class OrdersService {
     );
   }
 
+  async cancel(userId: bigint, orderId: bigint) {
+    const order = await this.prisma.$transaction(async (tx) => {
+      /*
+       * Thứ tự khóa chung: Order → Payment.
+       */
+      const [lockedOrder] = await tx.$queryRaw<LockedOrder[]>`
+        SELECT id, user_id, total_amount, status
+        FROM orders
+        WHERE id = ${orderId} AND user_id = ${userId}
+        LIMIT 1
+        FOR UPDATE
+      `;
+
+      if (!lockedOrder) {
+        throw new NotFoundException('Order not found');
+      }
+
+      if (lockedOrder.status !== OrderStatus.PENDING) {
+        throw new ConflictException('Order is not pending');
+      }
+
+      const [payment] = await tx.$queryRaw<LockedPaymentForCancel[]>`
+          SELECT id, status
+          FROM payments
+          WHERE order_id = ${lockedOrder.id}
+          LIMIT 1
+          FOR UPDATE
+        `;
+
+      /*
+       * Trạng thái này không nên xảy ra nếu webhook
+       * đã cập nhật Payment và Order cùng transaction.
+       */
+      if (payment?.status === PaymentStatus.PAID) {
+        throw new ConflictException('Order payment is already paid');
+      }
+
+      const now = new Date();
+
+      /*
+       * Chỉ Payment PENDING mới cần chuyển CANCELLED.
+       */
+      if (payment?.status === PaymentStatus.PENDING) {
+        const paymentUpdate = await tx.payment.updateMany({
+          where: {
+            id: payment.id,
+            status: PaymentStatus.PENDING,
+          },
+          data: {
+            status: PaymentStatus.CANCELLED,
+          },
+        });
+
+        if (paymentUpdate.count !== 1) {
+          throw new ConflictException('Payment is no longer cancellable');
+        }
+      }
+
+      const orderUpdate = await tx.order.updateMany({
+        where: {
+          id: lockedOrder.id,
+          userId: lockedOrder.user_id,
+          status: OrderStatus.PENDING,
+        },
+        data: {
+          status: OrderStatus.CANCELLED,
+          cancelledAt: now,
+        },
+      });
+
+      if (orderUpdate.count !== 1) {
+        throw new ConflictException('Order is no longer cancellable');
+      }
+
+      return tx.order.findUniqueOrThrow({
+        where: {
+          id: lockedOrder.id,
+        },
+        include: orderInclude,
+      });
+    });
+
+    return this.toResponse(order);
+  }
+
   private generatePaymentCode() {
     return `PAY${randomBytes(6).toString('hex').toUpperCase()}`;
   }
@@ -432,6 +525,7 @@ export class OrdersService {
 
   //LAY SAN PHAM CUA USER ID=?
   async findAllForUser(userId: bigint) {
+    await this.paymentsService.expireOrderPaymentsForUser(userId);
     const orders = await this.prisma.order.findMany({
       where: {
         userId,
@@ -456,6 +550,7 @@ export class OrdersService {
 
   //LAY SAN PHAM CUA USER ID=? VA ORDER ID=?
   async findByIdForUser(orderId: bigint, userId: bigint) {
+    await this.paymentsService.expireOrderPaymentIfNeeded(userId, orderId);
     const order = await this.prisma.order.findFirst({
       where: {
         id: orderId,

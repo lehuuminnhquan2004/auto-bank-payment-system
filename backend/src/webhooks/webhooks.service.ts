@@ -5,17 +5,31 @@ import {
   BankTransferType,
   PaymentStatus,
   Prisma,
+  OrderStatus,
+  PaymentMethod,
 } from '../generated/prisma/client.js';
 import { SePayWebhookDto } from './dto/sepay-webhook.dto.js';
 import { WebhookStatus } from '../generated/prisma/browser.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
+type PaymentReference = {
+  id: bigint;
+  order_id: bigint | null;
+};
+
+type LockedOrder = {
+  id: bigint;
+  status: OrderStatus;
+};
+
 type LockedPayment = {
   id: bigint;
   user_id: bigint;
+  order_id: bigint | null;
   amount: bigint;
+  method: PaymentMethod;
   status: PaymentStatus;
-  expired_at: Date;
+  expired_at: Date | null;
 };
 
 @Injectable()
@@ -191,47 +205,73 @@ export class WebhooksService {
         }
 
         /*
-         * Lock Payment row.
-         *
-         * This is the first read of the Payment,
-         * so concurrent webhook processing cannot
-         * independently operate on stale PENDING state.
+         * Đọc tham chiếu trước nhưng chưa lock.
+         * Mục đích là biết Payment có thuộc Order hay không.
          */
-        const payments = await tx.$queryRaw<LockedPayment[]>`
-              SELECT
-                id,
-                user_id,
-                amount,
-                status,
-                expired_at
-              FROM payments
-              WHERE payment_code = ${paymentCode}
-              LIMIT 1
-              FOR UPDATE
-            `;
+        const [paymentReference] = await tx.$queryRaw<PaymentReference[]>`
+            SELECT id, order_id
+            FROM payments
+            WHERE payment_code = ${paymentCode}
+            LIMIT 1
+          `;
 
-        const payment = payments[0];
-
-        /*
-         * No Payment for this code.
-         * BankTransaction is still committed for audit.
-         */
-        if (!payment) {
+        if (!paymentReference) {
           await tx.webhookLog.update({
             where: {
               id: webhookLogId,
             },
-
             data: {
               status: WebhookStatus.IGNORED,
-
               processedAt: new Date(),
-
               errorMessage: 'Payment not found',
             },
           });
 
           return;
+        }
+
+        /*
+         * Với Order Payment, luôn lock Order trước Payment.
+         */
+        let lockedOrder: LockedOrder | null = null;
+
+        if (paymentReference.order_id !== null) {
+          const [order] = await tx.$queryRaw<LockedOrder[]>`
+            SELECT id, status
+            FROM orders
+            WHERE id = ${paymentReference.order_id}
+            LIMIT 1
+            FOR UPDATE
+          `;
+
+          lockedOrder = order ?? null;
+
+          if (!lockedOrder) {
+            throw new Error('Order payment references a missing order');
+          }
+        }
+
+        /*
+         * Sau khi Order đã được lock, đọc lại và lock Payment.
+         * Không sử dụng trạng thái từ lần đọc tham chiếu ban đầu.
+         */
+        const [payment] = await tx.$queryRaw<LockedPayment[]>`
+          SELECT
+            id,
+            user_id,
+            order_id,
+            amount,
+            method,
+            status,
+            expired_at
+          FROM payments
+          WHERE id = ${paymentReference.id}
+          LIMIT 1
+          FOR UPDATE
+        `;
+
+        if (!payment) {
+          throw new Error('Payment disappeared during webhook processing');
         }
 
         /*
@@ -269,35 +309,80 @@ export class WebhooksService {
           return;
         }
 
+        if (lockedOrder && lockedOrder.status !== OrderStatus.PENDING) {
+          await tx.webhookLog.update({
+            where: {
+              id: webhookLogId,
+            },
+            data: {
+              status: WebhookStatus.IGNORED,
+              processedAt: new Date(),
+              errorMessage: `Order status is ${lockedOrder.status}`,
+            },
+          });
+
+          return;
+        }
+
+        if (
+          payment.method !== PaymentMethod.BANK_TRANSFER ||
+          payment.expired_at === null
+        ) {
+          await tx.webhookLog.update({
+            where: {
+              id: webhookLogId,
+            },
+            data: {
+              status: WebhookStatus.IGNORED,
+              processedAt: new Date(),
+              errorMessage: 'Invalid bank transfer payment',
+            },
+          });
+
+          return;
+        }
+
         const now = new Date();
 
-        /*
-         * Payment expired before bank transaction
-         * was processed.
-         */
+        // Payment expired, mark both Payment and Order as EXPIRED, and ignore the webhook.
         if (now > payment.expired_at) {
-          await tx.payment.updateMany({
+          const paymentUpdate = await tx.payment.updateMany({
             where: {
               id: payment.id,
-
               status: PaymentStatus.PENDING,
             },
-
             data: {
               status: PaymentStatus.EXPIRED,
             },
           });
 
+          if (paymentUpdate.count !== 1) {
+            throw new Error('Unable to expire Payment');
+          }
+
+          if (lockedOrder) {
+            const orderUpdate = await tx.order.updateMany({
+              where: {
+                id: lockedOrder.id,
+                status: OrderStatus.PENDING,
+              },
+              data: {
+                status: OrderStatus.EXPIRED,
+              },
+            });
+
+            if (orderUpdate.count !== 1) {
+              throw new Error('Unable to expire Order');
+            }
+          }
+
           await tx.webhookLog.update({
             where: {
               id: webhookLogId,
             },
-
             data: {
               status: WebhookStatus.IGNORED,
-
               processedAt: now,
-
               errorMessage: 'Payment expired',
             },
           });
@@ -307,9 +392,7 @@ export class WebhooksService {
 
         const transferAmount = BigInt(dto.transferAmount);
 
-        /*
-         * Exact amount matching.
-         */
+        // Payment amount is less than required, ignore the webhook.
         if (payment.amount > transferAmount) {
           await tx.webhookLog.update({
             where: {
@@ -370,20 +453,34 @@ export class WebhooksService {
           return;
         }
 
-        /*
-         * Balance update is in the SAME transaction.
-         */
-        await tx.user.update({
-          where: {
-            id: payment.user_id,
-          },
-
-          data: {
-            balance: {
-              increment: payment.amount,
+        // If the Payment is associated with an Order, mark the Order as PAID.
+        if (lockedOrder) {
+          const orderUpdate = await tx.order.updateMany({
+            where: {
+              id: lockedOrder.id,
+              status: OrderStatus.PENDING,
             },
-          },
-        });
+            data: {
+              status: OrderStatus.PAID,
+              paidAt: now,
+            },
+          });
+
+          if (orderUpdate.count !== 1) {
+            throw new Error('Unable to mark Order as paid');
+          }
+        } else {
+          await tx.user.update({
+            where: {
+              id: payment.user_id,
+            },
+            data: {
+              balance: {
+                increment: payment.amount,
+              },
+            },
+          });
+        }
 
         await tx.webhookLog.update({
           where: {

@@ -5,10 +5,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { OrderStatus } from '../src/generated/prisma/client.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { OrdersService } from '../src/orders/orders.service.js';
+import { PaymentsService } from '../src/payments/payments.service.js';
 
 const checkoutKey = '550e8400-e29b-41d4-a716-446655440000';
 
 const now = new Date('2026-09-20T00:00:00.000Z');
+function createPaymentsServiceMock() {
+  return {
+    expireOrderPaymentIfNeeded: vi.fn(),
+    expireOrderPaymentsForUser: vi.fn(),
+  } as unknown as PaymentsService;
+}
 
 function createPrismaMock() {
   const orderFindUnique = vi.fn();
@@ -109,7 +116,7 @@ describe('OrdersService', () => {
       ],
     });
 
-    const service = new OrdersService(prisma);
+    const service = new OrdersService(prisma, createPaymentsServiceMock());
 
     /*
      * Cố ý gửi product 2 trước
@@ -254,7 +261,7 @@ describe('OrdersService', () => {
       ],
     });
 
-    const service = new OrdersService(prisma);
+    const service = new OrdersService(prisma, createPaymentsServiceMock());
 
     const result = await service.create(7n, {
       checkoutKey,
@@ -294,7 +301,7 @@ describe('OrdersService', () => {
       items: [],
     });
 
-    const service = new OrdersService(prisma);
+    const service = new OrdersService(prisma, createPaymentsServiceMock());
 
     await expect(
       service.create(7n, {
@@ -325,7 +332,7 @@ describe('OrdersService', () => {
      */
     productFindMany.mockResolvedValue([]);
 
-    const service = new OrdersService(prisma);
+    const service = new OrdersService(prisma, createPaymentsServiceMock());
 
     await expect(
       service.create(7n, {
