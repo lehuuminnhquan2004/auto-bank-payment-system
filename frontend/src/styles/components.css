@@ -14,6 +14,15 @@ button:disabled::before { content: ''; width: 14px; height: 14px; border: 2px so
 [role='alert'], .notice { padding: 13px 16px; border-radius: 11px; margin-top: 22px; font-size: 14px; line-height: 1.6; }
 [role='alert'] { color: #a33434; background: #fff2f0; border: 1px solid #f4d2cb; }
 .notice-success { color: #17654a; background: #eff9f1; border: 1px solid #cde8d4; }
+.status-badge[data-status="EXPIRED"] {
+  color: #8a6217;
+  background: #fff4dc;
+}
+
+.status-badge[data-status="CANCELLED"] {
+  color: #7b4b49;
+  background: #f5e9e8;
+}
 
 
 .auth-page, .create-payment-page { width: min(480px, calc(100% - 40px)); padding: 42px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); position: relative; }

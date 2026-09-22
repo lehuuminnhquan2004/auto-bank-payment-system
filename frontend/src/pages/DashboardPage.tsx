@@ -99,6 +99,8 @@ export function DashboardPage() {
           <h2>Lịch sử thanh toán</h2>
 
           <div className="dashboard-actions">
+              <Link to="/orders">Đơn hàng của tôi</Link>
+              
               <Link className="button-link" to="/products">
                 Mua sản phẩm
               </Link>

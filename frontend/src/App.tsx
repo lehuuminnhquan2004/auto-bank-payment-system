@@ -11,6 +11,7 @@ import { CartProvider } from "./cart/CartProvider";
 import { ProductsPage } from "./pages/ProductsPage";
 import { CartPage } from "./pages/CartPage";
 import { OrderPage } from "./pages/OrderPage";
+import { OrdersPage } from "./pages/OrdersPage";
 
 function App() {
   return (
@@ -47,6 +48,8 @@ function App() {
 
               <Route path="/payments/:id" element={<PaymentPage />} />
               
+              <Route path="/orders" element={<OrdersPage />} />
+
               <Route path="/orders/:id" element={<OrderPage />} />
             </Route>
 

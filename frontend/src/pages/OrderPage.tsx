@@ -3,17 +3,11 @@ import { Link, useParams } from "react-router-dom";
 
 import { apiClient } from "../api/client";
 import { getApiErrorMessage } from "../api/error";
-import type { Order, OrderStatus } from "../types/order";
+import type { Order } from "../types/order";
+import { orderStatusLabels } from "../utils/orderStatus";
 import { formatCurrency } from "../utils/formatCurrency";
 import { OrderPaymentActions } from "../orders/OrderPaymentActions";
 import { CancelOrderButton } from "../orders/CancelOrderButton";
-
-const orderStatusLabels: Record<OrderStatus, string> = {
-  PENDING: "Chờ thanh toán",
-  PAID: "Đã thanh toán",
-  EXPIRED: "Đã hết hạn",
-  CANCELLED: "Đã hủy",
-};
 
 export function OrderPage() {
   const { id } = useParams();
