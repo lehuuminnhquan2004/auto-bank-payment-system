@@ -7,7 +7,9 @@ import './styles/auth.css';
 import './styles/dashboard.css';
 import './styles/create-payment.css';
 import './styles/payment.css';
+import "./styles/cart.css";
 import App from './App.tsx';
+import "./styles/order.css";
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -1,0 +1,43 @@
+.order-payment-actions {
+  margin-top: 24px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f9fbf9;
+}
+
+.order-payment-actions > p {
+  margin-top: 10px;
+}
+
+.order-payment-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.order-payment-buttons button:last-child {
+  background: #163e35;
+}
+
+@media (max-width: 640px) {
+  .order-payment-buttons {
+    flex-direction: column;
+  }
+}
+
+.order-cancel-action {
+  margin-top: 20px;
+}
+
+.order-cancel-button {
+  color: #a33434;
+  background: #fff;
+  border-color: #e5bcb6;
+}
+
+.order-cancel-button:hover:not(:disabled) {
+  color: #842c2c;
+  background: #fff2f0;
+}

@@ -20,7 +20,11 @@ td:first-child { font-family: 'Cascadia Code', Consolas, monospace; font-size: 1
 td:nth-child(2) { font-weight: 650; }
 td:last-child a { display: inline-block; font-weight: 650; padding: 6px 10px; border-radius: 7px; background: #eef5f0; text-decoration: none; }
 tbody tr:hover { background: #fafcf9; }
-
+.dashboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 
 
 @media (max-width: 640px) {

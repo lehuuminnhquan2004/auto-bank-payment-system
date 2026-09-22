@@ -98,9 +98,15 @@ export function DashboardPage() {
         <div className="section-heading">
           <h2>Lịch sử thanh toán</h2>
 
-          <Link className="button-link" to="/payments/new">
-            Tạo thanh toán
-          </Link>
+          <div className="dashboard-actions">
+              <Link className="button-link" to="/products">
+                Mua sản phẩm
+              </Link>
+
+              <Link className="button-link" to="/payments/new">
+                Nạp tiền
+              </Link>
+          </div>
         </div>
 
         {loading && <p>Đang tải lịch sử thanh toán...</p>}

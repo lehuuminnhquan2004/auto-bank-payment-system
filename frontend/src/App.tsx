@@ -7,44 +7,56 @@ import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { PaymentPage } from './pages/PaymentPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { CartProvider } from "./cart/CartProvider";
+import { ProductsPage } from "./pages/ProductsPage";
+import { CartPage } from "./pages/CartPage";
+import { OrderPage } from "./pages/OrderPage";
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <header className="site-header">
-          <Link to="/" className="brand" aria-label="Trang chủ AutoBank">
-            <span className="brand-mark" aria-hidden="true">
-              A<span>↗</span>
+        <CartProvider>
+          <header className="site-header">
+            <Link to="/" className="brand" aria-label="Trang chủ AutoBank">
+              <span className="brand-mark" aria-hidden="true">
+                A<span>↗</span>
+              </span>
+              <span>
+                Auto<span className="brand-accent">Bank</span>
+                <small>THANH TOÁN TRỰC TUYẾN</small>
+              </span>
+            </Link>
+            <span className="header-caption">
+              Thanh toán đơn giản, giao dịch dễ dàng.
             </span>
-            <span>
-              Auto<span className="brand-accent">Bank</span>
-              <small>THANH TOÁN TRỰC TUYẾN</small>
-            </span>
-          </Link>
-          <span className="header-caption">
-            Thanh toán đơn giản, giao dịch dễ dàng.
-          </span>
-        </header>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
+          </header>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
 
-          <Route path="/register" element={<RegisterPage />} />
+            <Route path="/register" element={<RegisterPage />} />
 
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<DashboardPage />} />
+            <Route element={<ProtectedRoute />}>
+            <Route path="/cart" element={<CartPage />} />
 
-            <Route path="/payments/new" element={<CreatePaymentPage />} />
+              <Route path="/" element={<DashboardPage />} />
 
-            <Route path="/payments/:id" element={<PaymentPage />} />
-          </Route>
+              <Route path="/products" element={<ProductsPage />} />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        <footer className="site-footer">
-          <span>AutoBank · Thanh toán qua ngân hàng</span>
-          <span>Đơn giản. Minh bạch. Tiện lợi.</span>
-        </footer>
+              <Route path="/payments/new" element={<CreatePaymentPage />} />
+
+              <Route path="/payments/:id" element={<PaymentPage />} />
+              
+              <Route path="/orders/:id" element={<OrderPage />} />
+            </Route>
+
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+          <footer className="site-footer">
+            <span>AutoBank · Thanh toán qua ngân hàng</span>
+            <span>Đơn giản. Minh bạch. Tiện lợi.</span>
+          </footer>
+        </CartProvider>
       </AuthProvider>
     </BrowserRouter>
   );

@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from "react";
+import { Link, useParams } from "react-router-dom";
 
-import { apiClient } from '../api/client';
-import { getApiErrorMessage } from '../api/error';
-import { useAuth } from '../auth/AuthContext';
-import type { Payment } from '../types/payment';
-import { formatCurrency } from '../utils/formatCurrency';
+import { apiClient } from "../api/client";
+import { getApiErrorMessage } from "../api/error";
+import { useAuth } from "../auth/AuthContext";
+import type { Payment } from "../types/payment";
+import { formatCurrency } from "../utils/formatCurrency";
 
 const POLL_INTERVAL_MS = 2000;
 
@@ -14,7 +14,7 @@ function formatRemainingTime(totalSeconds: number) {
 
   const seconds = totalSeconds % 60;
 
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 export function PaymentPage() {
@@ -26,7 +26,7 @@ export function PaymentPage() {
 
   const [loading, setLoading] = useState(true);
 
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const [remainingSeconds, setRemainingSeconds] = useState(0);
 
@@ -38,10 +38,6 @@ export function PaymentPage() {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     if (!id || !/^\d+$/.test(id)) {
-      setError('Mã yêu cầu thanh toán không hợp lệ.');
-
-      setLoading(false);
-
       return;
     }
 
@@ -59,7 +55,7 @@ export function PaymentPage() {
 
         setPayment(currentPayment);
 
-        setError('');
+        setError("");
 
         /*
          * Payment processing happens
@@ -68,7 +64,7 @@ export function PaymentPage() {
          * Frontend only reacts to
          * the returned status.
          */
-        if (currentPayment.status === 'PAID' && !balanceRefreshed.current) {
+        if (currentPayment.status === "PAID" && !balanceRefreshed.current) {
           balanceRefreshed.current = true;
 
           try {
@@ -87,7 +83,7 @@ export function PaymentPage() {
          * Only PENDING payments
          * need polling.
          */
-        if (currentPayment.status === 'PENDING') {
+        if (currentPayment.status === "PENDING") {
           timeoutId = setTimeout(() => {
             void loadPayment();
           }, POLL_INTERVAL_MS);
@@ -97,7 +93,7 @@ export function PaymentPage() {
           setError(
             getApiErrorMessage(
               error,
-              'Không thể tải thông tin thanh toán. Vui lòng thử lại.',
+              "Không thể tải thông tin thanh toán. Vui lòng thử lại.",
             ),
           );
         }
@@ -124,9 +120,7 @@ export function PaymentPage() {
   const paymentExpiredAt = payment?.expiredAt;
 
   useEffect(() => {
-    if (paymentStatus !== 'PENDING' || !paymentExpiredAt) {
-      setRemainingSeconds(0);
-
+    if (paymentStatus !== "PENDING" || !paymentExpiredAt) {
       return;
     }
 
@@ -146,6 +140,18 @@ export function PaymentPage() {
       clearInterval(intervalId);
     };
   }, [paymentStatus, paymentExpiredAt]);
+
+  if (!id || !/^\d+$/.test(id)) {
+    return (
+      <main className="payment-page">
+        <h1>Chi tiết thanh toán</h1>
+
+        <p role="alert">Mã yêu cầu thanh toán không hợp lệ.</p>
+
+        <Link to="/">Về trang tổng quan</Link>
+      </main>
+    );
+  }
 
   if (loading) {
     return (
@@ -173,10 +179,14 @@ export function PaymentPage() {
 
   return (
     <main className="payment-page" data-status={payment.status}>
-      <span className="eyebrow">CHUYỂN KHOẢN NGÂN HÀNG</span>
+      <span className="eyebrow">
+        {payment.method === "BANK_TRANSFER"
+          ? "CHUYỂN KHOẢN NGÂN HÀNG"
+          : "THANH TOÁN BẰNG SỐ DƯ"}
+      </span>
       <h1>Chi tiết thanh toán</h1>
 
-      {payment.status === 'PENDING' && (
+      {payment.status === "PENDING" && payment.method === "BANK_TRANSFER" && (
         <>
           <p>
             Mở ứng dụng ngân hàng và quét mã QR bên dưới để chuyển khoản đúng số
@@ -217,7 +227,7 @@ export function PaymentPage() {
             </p>
 
             <p>
-              Thời gian còn lại:{' '}
+              Thời gian còn lại:{" "}
               <strong>{formatRemainingTime(remainingSeconds)}</strong>
             </p>
 
@@ -226,7 +236,7 @@ export function PaymentPage() {
         </>
       )}
 
-      {payment.status === 'PAID' && (
+      {payment.status === "PAID" && (
         <section className="payment-result" role="status">
           <h2>Thanh toán thành công</h2>
 
@@ -242,14 +252,14 @@ export function PaymentPage() {
 
           {payment.paidAt && (
             <p>
-              Thời gian thanh toán:{' '}
-              {new Date(payment.paidAt).toLocaleString('vi-VN')}
+              Thời gian thanh toán:{" "}
+              {new Date(payment.paidAt).toLocaleString("vi-VN")}
             </p>
           )}
         </section>
       )}
 
-      {payment.status === 'EXPIRED' && (
+      {payment.status === "EXPIRED" && (
         <section className="payment-result" role="status">
           <h2>Thanh toán đã hết hạn</h2>
 
@@ -258,11 +268,15 @@ export function PaymentPage() {
             toán.
           </p>
 
-          <Link to="/payments/new">Tạo thanh toán mới</Link>
+          {payment.orderId ? (
+            <Link to="/products">Tạo đơn hàng mới</Link>
+          ) : (
+            <Link to="/payments/new">Tạo thanh toán mới</Link>
+          )}
         </section>
       )}
 
-      {payment.status === 'FAILED' && (
+      {payment.status === "FAILED" && (
         <section className="payment-result" role="status">
           <h2>Thanh toán không thành công</h2>
 
@@ -275,6 +289,18 @@ export function PaymentPage() {
         </section>
       )}
 
+      {payment.status === "CANCELLED" && (
+        <section className="payment-result" role="status">
+          <h2>Thanh toán đã bị hủy</h2>
+
+          <p>Yêu cầu thanh toán này không còn hiệu lực.</p>
+        </section>
+      )}
+      {payment.orderId && (
+        <p>
+          <Link to={`/orders/${payment.orderId}`}>Xem đơn hàng</Link>
+        </p>
+      )}
       <p>
         <Link to="/">Về trang tổng quan</Link>
       </p>
